@@ -2,6 +2,7 @@
 from PySide2.QtCore import Qt,QStandardPaths,QDir
 from PySide2.QtWidgets import *
 from QBootStrapWidget import QBootStrapTableWidget
+import openpyxl
 
 G_COL_TEXT = ['一', '二', '三', '四', '五', '六', '日']
 G_ROW_TEXT = ['早', '午', '晚']
@@ -179,14 +180,15 @@ class WSelector(QSplitter):
                 return
             self.data.clear()
             for r,row in enumerate(sht.rows):
-                if r > 2:
+                if r > 3:
                     break
                 for c,cell in enumerate(row):
-                    if c > 6:
+                    if c > 7:
                         break
                     key = cell.value
                     if key is not None:
-                        self.data[(r,c)] = key
+                        self.data[(r,c)] = key.split('\n')
+                        self.tblPreview.setText(r,c,key)
             self.updateListAndPreview()
             self.docPath = path
             self.setDocModified(False)
@@ -196,14 +198,32 @@ class WSelector(QSplitter):
             return
         if self.docPath is None:
             path,ftype = QFileDialog.getSaveFileName(self,'保存食谱',QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation),'Excel 文件(*.xlsx)')
-            if path != '' and QDir(path) != QDir(self._library_file):
-                pass
+            if path == '':
+                return
+            if QDir(path) == QDir(self._library_file):
+                QMessageBox.critical(self,G_APPNAME,'%s 是库文件，不能用于保存食谱' % path)
+                return
+        else:                
+            path = self.docPath
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        for k,v in self.data.items():
+            cell = ws.cell(row=k[0]+1,column=k[1]+1)
+            cell.value = "\n".join(v)
+        try:
+            wb.save(path)
+            wb.close()
+        except:
+            QMessageBox.critical(self,G_APPNAME,'%s 保存失败' % path)
+            return
+        self.docPath = path
+        self.setDocModified(False)
 
 if __name__ == '__main__':
     app = QApplication([])
 
     #library
-    import openpyxl
+    
     import os
     from collections import OrderedDict
 
